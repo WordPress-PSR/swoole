@@ -1,0 +1,42 @@
+{
+  "name": "tgc/wordpress-psr-swoole",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "GPL-3.0-or-later",
+  "type": "project",
+  "config": {
+    "preferred-install": {
+      "superdav42/wordpress-core": "source",
+      "*": "dist"
+    }
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "git@github.com:superdav42/wordpress-core.git"
+    }
+  ],
+  "authors": [
+    {
+      "name": "dave"
+    }
+  ],
+  "require": {
+    "tgc/wordpres-psr-request-handler": "dev-master",
+    "chubbyphp/chubbyphp-swoole-request-handler": "^1.1",
+    "psr/http-message-implementation": "1.0",
+    "psr/http-factory-implementation": "1.0",
+    "nyholm/psr7": "^1.4.0",
+    "johnpbloch/wordpress-core-installer": "^2.0",
+    "superdav42/wordpress-core": "dev-master"
+  },
+  "require-dev": {
+    "roave/security-advisories": "dev-master",
+    "swoole/ide-helper": "@dev"
+  },
+  "extra": {
+    "wordpress-install-dir": {
+      "johnpbloch/wordpress-core": "jpb-wordpress"
+    }
+  }
+}
