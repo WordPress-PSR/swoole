@@ -1,7 +1,6 @@
 {
   "name": "tgc/wordpress-psr-swoole",
   "description": "description",
-  "minimum-stability": "stable",
   "license": "GPL-3.0-or-later",
   "type": "project",
   "config": {
@@ -16,6 +15,8 @@
       "url": "git@github.com:superdav42/wordpress-core.git"
     }
   ],
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "authors": [
     {
       "name": "dave"
@@ -33,10 +34,5 @@
   "require-dev": {
     "roave/security-advisories": "dev-master",
     "swoole/ide-helper": "@dev"
-  },
-  "extra": {
-    "wordpress-install-dir": {
-      "johnpbloch/wordpress-core": "jpb-wordpress"
-    }
   }
 }

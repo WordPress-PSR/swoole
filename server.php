@@ -21,10 +21,10 @@ $loader = require __DIR__.'/vendor/autoload.php';
 $worker_num = 8;
 $task_worker_num = 8;
 
-$http = new Server('0.0.0.0', 8080);
+$http = new Server('0.0.0.0', 8889);
 
 $http->set([
-	'document_root' => __DIR__  . '/wordpress',
+	'document_root' => '/home/dave/wordpress-psr-request-handler/wordpress',
 	'enable_static_handler' => true,
 	'enable_coroutine' => false,
 	'worker_num' => $worker_num,
@@ -40,7 +40,7 @@ $http->on('start', function (Server $server): void {
 });
 $psr17 = new Psr17Factory();
 /** @var RequestHandlerInterface $app*/
-$app = new RequestHandler(__DIR__ . '/wordpress', $psr17, $psr17 );
+$app = new RequestHandler('/home/dave/wordpress-psr-request-handler/wordpress', $psr17, $psr17 );
 
 $onrequest = new OnRequest(
 	new PsrRequestFactory(
@@ -95,20 +95,22 @@ $http->on('request', function (SwooleRequest $swooleRequest, SwooleResponse $swo
 	$worker_id = $task_workers->getWorkerForRequest( $request );
 	error_log((string)$worker_id);
 	$http->task( $request, $worker_id, function( Server $server, $task_id, $data ) use( $swooleResponse, $swooleResponseEmitter ) {
-//		var_dump(get_class($data));
 		$swooleResponseEmitter->emit( $data, $swooleResponse );
 	} );
 //	$onrequest($swooleRequest, $swooleResponse);
 //	$http->stop();
 } );
 
-$http->on('task', function ( Server $server, Task $task ) use ($app) {
-	$response = $app->handle($task->data);
+$http->on('task', function ( Server $server, Task $task ) use ($app, $task_workers) {
+	$response = $app->handle( $task->data );
 
 //	echo "Task Callback: ";
 //	var_dump( $server );
 //	var_dump( $task_id );
 	$task->finish( $response );
+	if ( $task_workers->shouldShutdownAfter( $task->data ) ) {
+		$server->stop();
+	}
 });
 
 $http->on('WorkerStop', function($server, $worker_id ) {
