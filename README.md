@@ -7,7 +7,7 @@ Installation
 ------------
 
 ```bash
-composer create-project tgc/wordpress-psr-swoole
+composer create-project -s dev wordpress-psr/swoole
 ```
 
 Overview
