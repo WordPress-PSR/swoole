@@ -10,29 +10,34 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Swoole\Http\Response as SwooleResponse;
 use Swoole\Http\Server;
 use Swoole\Server\Task;
+use Swoole\Constant;
 use Tgc\WordPressPsr\BucketWordPressRoutes;
 use Tgc\WordPressPsr\RequestHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Swoole\Http\Request as SwooleRequest;
 
-$loader = require __DIR__.'/vendor/autoload.php';
+// The below causes all kinds of problems
+// It may be possible to use Coroutines with a dropin wp-db and object cache
+// These would be a huge effort.
+// \Swoole\Runtime::enableCoroutine();
 
-$worker_num = 8;
-$task_worker_num = 8;
+require __DIR__.'/vendor/autoload.php';
+
 $wordpres_path = '/home/dave/wordpress-psr-request-handler/wordpress';
 $http = new Server('0.0.0.0', 8889);
 
 $http->set([
-	'document_root' => $wordpres_path,
-	'enable_static_handler' => true,
-	'enable_coroutine' => true,
-	'worker_num' => $worker_num,
-	'task_worker_num' => $task_worker_num,
-    'task_enable_coroutine' => true,
+	Constant::OPTION_DOCUMENT_ROOT => $wordpres_path,
+	Constant::OPTION_ENABLE_STATIC_HANDLER => true,
+	Constant::OPTION_ENABLE_COROUTINE => true,
+	Constant::OPTION_WORKER_NUM => swoole_cpu_num(),
+	Constant::OPTION_TASK_WORKER_NUM => BucketWordPressRoutes::MIN_REQUIRED_WORKERS,
+    Constant::OPTION_TASK_ENABLE_COROUTINE => true,
+	Constant::OPTION_STATIC_HANDLER_LOCATIONS => ['/wp-admin', '/wp-content', '/wp-includes'],
 ]);
 
 $http->on('start', function (Server $server): void {
-	echo 'Swoole http server is started at http://0.0.0.0:8080'.PHP_EOL;
+	echo 'Swoole http server is started at http://0.0.0.0:8889'.PHP_EOL;
 	echo 'WorkerID:'. $server->getWorkerId().PHP_EOL;
 	echo 'ManagerPid:' . $server->getManagerPid().PHP_EOL;
 	echo 'MasterPid:'.$server->getMasterPid().PHP_EOL;
@@ -41,7 +46,6 @@ $http->on('start', function (Server $server): void {
 $http->on('WorkerStart', function ($serv, $worker_id) use ( $wordpres_path ) {
 	global $argv;
 	if($worker_id >= $serv->setting['worker_num']) {
-		error_log((string)$worker_id);
 		swoole_set_process_name("php {$argv[0]} task worker");
 	} else {
 		swoole_set_process_name("php {$argv[0]} event worker");
@@ -49,9 +53,6 @@ $http->on('WorkerStart', function ($serv, $worker_id) use ( $wordpres_path ) {
 	error_log( "Worker #$worker_id starting" );
 	if (function_exists('opcache_reset')) {
 		opcache_reset();
-	}
-	if (function_exists('apc_clear_cache')) {
-		apc_clear_cache();
 	}
 
 	clearstatcache();
@@ -78,7 +79,6 @@ $psrRequestFactory = new PsrRequestFactory(
 $http->on('request', function (SwooleRequest $swooleRequest, SwooleResponse $swooleResponse) use ($app, $task_workers, $http, $psrRequestFactory, $swooleResponseEmitter) {
 	$request = $psrRequestFactory->create($swooleRequest);
 	$worker_id = $task_workers->getWorkerForRequest( $request );
-	error_log( (string) $worker_id );
 	if ( BucketWordPressRoutes::DO_NOT_USE_WORKER === $worker_id ) {
 		$response = $app->handle( $request );
 		$swooleResponseEmitter->emit( $response, $swooleResponse );

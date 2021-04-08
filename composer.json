@@ -1,5 +1,5 @@
 {
-  "name": "tgc/wordpress-psr-swoole",
+  "name": "wordpress-psr/swoole",
   "description": "description",
   "license": "GPL-3.0-or-later",
   "type": "project",
