@@ -15,6 +15,7 @@ use WordPressPsr\BucketWordPressRoutes;
 use WordPressPsr\RequestHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Swoole\Http\Request as SwooleRequest;
+use Swoole\ExitException;
 
 // The below causes all kinds of problems
 // It may be possible to use Coroutines with a dropin wp-db and object cache
@@ -23,7 +24,7 @@ use Swoole\Http\Request as SwooleRequest;
 
 require __DIR__.'/vendor/autoload.php';
 
-$wordpres_path = '/home/dave/wordpress-psr-request-handler/wordpress';
+$wordpres_path = __DIR__.'/wordpress';
 $http = new Server('0.0.0.0', 8889);
 
 $http->set([
@@ -50,7 +51,6 @@ $http->on('WorkerStart', function ($serv, $worker_id) use ( $wordpres_path ) {
 	} else {
 		swoole_set_process_name("php {$argv[0]} event worker");
 	}
-	error_log( "Worker #$worker_id starting" );
 	if (function_exists('opcache_reset')) {
 		opcache_reset();
 	}
@@ -80,8 +80,22 @@ $http->on('request', function (SwooleRequest $swooleRequest, SwooleResponse $swo
 	$request = $psrRequestFactory->create($swooleRequest);
 	$worker_id = $task_workers->getWorkerForRequest( $request );
 	if ( BucketWordPressRoutes::DO_NOT_USE_WORKER === $worker_id ) {
-		$response = $app->handle( $request );
-		$swooleResponseEmitter->emit( $response, $swooleResponse );
+		try {
+			$response = $app->handle( $request );
+			$swooleResponseEmitter->emit( $response, $swooleResponse );
+		} catch( ExitException $e ) {
+			// WordPress code usually does not call exit directly anymore but sometime it does.
+			error_log( $e->getMessage() );
+			if ( 'wp-load.php' === basename( $e->getFile() ) ) {
+				// WordPress died loading probably missing wp-config.php redirecting to setup.
+				$swooleResponse->status( 302 );
+				$swooleResponse->header( 'Location', wp_guess_url() . '/wp-admin/setup-config.php');
+			} else {
+				$swooleResponse->status( 200 );
+				$swooleResponse->write( 'WordPress called exit when it shouldn\'t probably it\'s a <a href="https://github.com/WordPress-PSR/swoole/issues/new">bug</a>.' );
+			}
+			$swooleResponse->end();
+		}
 	} else {
 		$http->task( $request, $worker_id, function ( Server $server, $task_id, $data ) use ( $swooleResponse, $swooleResponseEmitter ) {
 			$swooleResponseEmitter->emit( $data, $swooleResponse );
