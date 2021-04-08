@@ -1,14 +1,8 @@
 {
   "name": "wordpress-psr/swoole",
-  "description": "description",
+  "description": "WordPress running on the High performance HTTP server based on Swoole.",
   "license": "GPL-3.0-or-later",
   "type": "project",
-  "config": {
-    "preferred-install": {
-      "superdav42/wordpress-core": "source",
-      "*": "dist"
-    }
-  },
   "repositories": [
     {
       "type": "vcs",
@@ -19,11 +13,12 @@
   "prefer-stable": true,
   "authors": [
     {
-      "name": "dave"
+      "name": "David Stone",
+      "email": "david@stonefamily.ro"
     }
   ],
   "require": {
-    "tgc/wordpres-psr-request-handler": "dev-master",
+    "wordpress-psr/request-handler": "dev-master",
     "chubbyphp/chubbyphp-swoole-request-handler": "^1.1",
     "nyholm/psr7": "^1.4.0",
     "johnpbloch/wordpress-core-installer": "^2.0",
