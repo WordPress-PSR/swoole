@@ -13,7 +13,7 @@ composer create-project tgc/wordpress-psr-swoole
 Overview
 -----------
 
-Most of the heavy lifting is done by [WordPress PSR Request Handler](https://github.com/superdav42/wordpress-psr-request-handler/).
+Most of the heavy lifting is done by [WordPress PSR Request Handler](https://github.com/WordPress-PSR/request-handler/).
 This project is mostly just glue that pieces the request handler with the [chubbyphp-swoole-request-handler](https://github.com/chubbyphp/chubbyphp-swoole-request-handler).
 The basic flow goes like this:
 1. Receive Swoole Request.
