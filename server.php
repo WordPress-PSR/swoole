@@ -11,8 +11,8 @@ use Swoole\Http\Response as SwooleResponse;
 use Swoole\Http\Server;
 use Swoole\Server\Task;
 use Swoole\Constant;
-use Tgc\WordPressPsr\BucketWordPressRoutes;
-use Tgc\WordPressPsr\RequestHandler;
+use WordPressPsr\BucketWordPressRoutes;
+use WordPressPsr\RequestHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Swoole\Http\Request as SwooleRequest;
 
