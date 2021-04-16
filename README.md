@@ -6,8 +6,20 @@ A method of running WordPress with the high performance, event-driven Swoole HTT
 Installation
 ------------
 
+Swoole must be installed from pecl or [another source](https://www.swoole.co.uk/docs/get-started/installation).
+
 ```bash
 composer create-project -s dev wordpress-psr/swoole
+```
+
+Visit http://0.0.0.0:8889/ It should redirect to configure and perform WordPress's famous 5-minute installation.
+If it fails for any reason create wp-config.php manually.
+```bash
+cp wordpress/wp-config-sample.php wp-config.php
+```
+Than run the installation with WP cli.
+```bash
+wp core install --url='http://0.0.0.0:8889' --title='Swoole Test' --admin_user=admin --admin_password=password --skip-email
 ```
 
 Overview
