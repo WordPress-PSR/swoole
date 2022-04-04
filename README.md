@@ -11,7 +11,12 @@ Installation
 Swoole must be installed from pecl or [another source](https://www.swoole.co.uk/docs/get-started/installation).
 
 ```bash
-composer create-project -s dev wordpress-psr/swoole
+composer create-project -s dev wordpress-psr/swoole wordpress-swoole
+```
+Start swoole process
+```bash
+cd wordpress-swoole
+php server.php
 ```
 
 Visit http://0.0.0.0:8889/ It should redirect to configure and perform WordPress's famous 5-minute installation.
