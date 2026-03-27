@@ -3,12 +3,6 @@
   "description": "WordPress running on the High performance HTTP server based on Swoole.",
   "license": "GPL-3.0-or-later",
   "type": "project",
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/superdav42/wordpress-core.git"
-    }
-  ],
   "minimum-stability": "dev",
   "prefer-stable": true,
   "authors": [
@@ -20,9 +14,7 @@
   "require": {
     "wordpress-psr/request-handler": "dev-master",
     "chubbyphp/chubbyphp-swoole-request-handler": "^1.1",
-    "nyholm/psr7": "^1.4.0",
-    "johnpbloch/wordpress-core-installer": "^2.0",
-    "superdav42/wordpress-core": "dev-master"
+    "nyholm/psr7": "^1.4.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master",
@@ -31,10 +23,5 @@
   },
   "provide": {
     "ext-swoole": "*"
-  },
-  "config": {
-    "allow-plugins": {
-      "johnpbloch/wordpress-core-installer": true
-    }
   }
 }

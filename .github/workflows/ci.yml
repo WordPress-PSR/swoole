@@ -150,8 +150,7 @@ jobs:
 
       - name: Install WordPress via WP-CLI
         run: |
-          # WordPress files are already installed by johnpbloch/wordpress-core-installer
-          # via composer install. Skip the download step; only configure and install DB.
+          wp core download --path=wordpress --allow-root
           wp config create \
             --path=wordpress \
             --dbname=wordpress_test \
