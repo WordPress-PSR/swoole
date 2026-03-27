@@ -146,7 +146,9 @@ jobs:
 
       - name: Install WordPress via WP-CLI
         run: |
-          wp core download --path=wordpress --allow-root
+          # composer install (johnpbloch/wordpress-core-installer) may have already
+          # placed WordPress files in wordpress/; --force overwrites without error.
+          wp core download --path=wordpress --allow-root --force
           wp config create \
             --path=wordpress \
             --dbname=wordpress_test \
