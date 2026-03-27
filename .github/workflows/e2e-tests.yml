@@ -87,6 +87,12 @@ jobs:
 
       - name: Install Composer dependencies
         run: |
+          # Remove private SSH VCS repository — CI uses GITHUB_TOKEN (HTTPS).
+          # The superdav42/wordpress-core package is resolved via COMPOSER_AUTH
+          # github-oauth below; the explicit VCS entry is not needed in CI and
+          # would cause composer to attempt an SSH clone which fails without a
+          # deploy key.
+          composer config --unset repositories.0
           # --ignore-platform-reqs: mezzio/mezzio-swoole (dev dep) requires PHP
           # <8.2 but we're on 8.2. The hot-reload feature it provides is not
           # needed for test runs; the conditional in server.php handles absence.
