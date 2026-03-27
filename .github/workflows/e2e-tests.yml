@@ -105,7 +105,9 @@ jobs:
 
       - name: Install WordPress via WP-CLI
         run: |
-          wp core download --path=wordpress --allow-root
+          # WordPress core files are already installed by Composer via
+          # johnpbloch/wordpress-core-installer into ./wordpress/.
+          # Skipping `wp core download` avoids the "files already present" error.
           wp config create \
             --path=wordpress \
             --dbname="${DB_NAME}" \
