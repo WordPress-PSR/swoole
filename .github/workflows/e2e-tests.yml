@@ -87,12 +87,14 @@ jobs:
 
       - name: Install Composer dependencies
         run: |
-          # Use --no-dev: mezzio/mezzio-swoole (dev dep) requires PHP <8.2.
-          # The hot-reload feature it provides is not needed for test runs.
+          # --ignore-platform-reqs: mezzio/mezzio-swoole (dev dep) requires PHP
+          # <8.2 but we're on 8.2. The hot-reload feature it provides is not
+          # needed for test runs; the conditional in server.php handles absence.
           composer install \
             --no-interaction \
             --no-progress \
             --no-dev \
+            --ignore-platform-reqs \
             --prefer-dist \
             --optimize-autoloader
         env:
