@@ -17,6 +17,7 @@ use WordPressPsr\RequestHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Swoole\Http\Request as SwooleRequest;
 use Swoole\ExitException;
+use WordPressPsr\Headers;
 
 // The below causes all kinds of problems
 // It may be possible to use Coroutines with a dropin wp-db and object cache
@@ -140,8 +141,22 @@ $http->on(
 
 $http->on(
 	'task',
-	function ( Server $server, Task $task ) use ( $app, $task_workers ) {
-		$response = $app->handle( $task->data );
+	function ( Server $server, Task $task ) use ( $app, $task_workers, $psr17 ) {
+		try {
+			$response = $app->handle( $task->data );
+		} catch ( ExitException $e ) {
+			// WordPress called exit() directly (e.g. auth_redirect() after wp_redirect()).
+			// By the time ExitException is thrown, WordPress has already emitted the redirect
+			// headers via the wp_header action, so Headers::get_headers() contains Location
+			// and Headers::get_status_code() is 302. Build a proper PSR response from them.
+			error_log( 'ExitException in task worker: ' . $e->getMessage() );
+			$status   = Headers::get_status_code();
+			$response = $psr17->createResponse( $status > 0 ? $status : 302 );
+			foreach ( Headers::get_headers() as $header => $value ) {
+				$response = $response->withHeader( $header, $value );
+			}
+			Headers::reset();
+		}
 
 		$task->finish( $response );
 		if ( $task_workers->shouldShutdownAfter( $task->data ) ) {
