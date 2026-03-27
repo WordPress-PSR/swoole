@@ -1,0 +1,265 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: PHP Lint (8.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer:v2
+          coverage: none
+
+      - name: PHP syntax check
+        run: find . -name "*.php" -not -path "./vendor/*" -not -path "./wordpress/*" | xargs php -l
+
+  build:
+    name: Build (PHP ${{ matrix.php }} / OpenSwoole ${{ matrix.openswoole }})
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.3", "8.4"]
+        openswoole: ["22.1.5", "22.1.2"]
+        exclude:
+          # OpenSwoole 22.1.5 does not yet publish a PHP 8.4 PECL release
+          - php: "8.4"
+            openswoole: "22.1.5"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------
+      # SSH key for private VCS dependency (superdav42/wordpress-core)
+      # Add a repository deploy key and store it as COMPOSER_DEPLOY_KEY
+      # in GitHub Actions secrets.  If the secret is absent the step is
+      # skipped and composer will fall back to the HTTPS token below.
+      # ---------------------------------------------------------------
+      - name: Configure SSH deploy key
+        if: ${{ secrets.COMPOSER_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.COMPOSER_DEPLOY_KEY }}
+
+      - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: openswoole-${{ matrix.openswoole }}
+          tools: composer:v2
+          coverage: none
+        env:
+          # Allows shivammathur/setup-php to install pre-release extensions
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify OpenSwoole loaded
+        run: php -r "echo 'OpenSwoole ' . OPENSWOOLE_VERSION . PHP_EOL;"
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php${{ matrix.php }}-composer-
+
+      - name: Install Composer dependencies
+        run: |
+          composer install \
+            --no-interaction \
+            --no-progress \
+            --prefer-dist \
+            --optimize-autoloader
+        env:
+          COMPOSER_AUTH: >-
+            {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
+
+      - name: PHP syntax check (vendor-free)
+        run: find . -name "*.php" -not -path "./vendor/*" -not -path "./wordpress/*" | xargs php -l
+
+  integration:
+    name: Integration (PHP ${{ matrix.php }} / OpenSwoole ${{ matrix.openswoole }})
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.3"]
+        openswoole: ["22.1.5"]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH deploy key
+        if: ${{ secrets.COMPOSER_DEPLOY_KEY != '' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.COMPOSER_DEPLOY_KEY }}
+
+      - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: openswoole-${{ matrix.openswoole }}, mysqli, pdo_mysql
+          tools: composer:v2, wp-cli
+          coverage: none
+        env:
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php${{ matrix.php }}-composer-
+
+      - name: Install Composer dependencies
+        run: |
+          composer install \
+            --no-interaction \
+            --no-progress \
+            --prefer-dist \
+            --optimize-autoloader
+        env:
+          COMPOSER_AUTH: >-
+            {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
+
+      - name: Install WordPress via WP-CLI
+        run: |
+          wp core download --path=wordpress --allow-root
+          wp config create \
+            --path=wordpress \
+            --dbname=wordpress_test \
+            --dbuser=wordpress \
+            --dbpass=wordpress \
+            --dbhost=127.0.0.1 \
+            --allow-root
+          wp core install \
+            --path=wordpress \
+            --url=http://localhost:8889 \
+            --title="CI Test Site" \
+            --admin_user=admin \
+            --admin_password=admin \
+            --admin_email=ci@example.com \
+            --skip-email \
+            --allow-root
+
+      - name: Start Swoole server
+        run: |
+          php server.php &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+
+          # Wait up to 15 s for the server to become ready
+          for i in $(seq 1 15); do
+            if curl -sf --max-time 2 http://localhost:8889/ > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 15 ]; then
+              echo "Server did not start within 15 seconds"
+              kill "$SERVER_PID" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Test — homepage returns 200 or 302
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/)
+          echo "Homepage status: $STATUS"
+          [[ "$STATUS" == "200" || "$STATUS" == "302" ]]
+
+      - name: Test — wp-login.php returns 200
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/wp-login.php)
+          echo "wp-login.php status: $STATUS"
+          [[ "$STATUS" == "200" ]]
+
+      - name: Test — wp-admin redirects to login (302)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-redirs 0 http://localhost:8889/wp-admin/)
+          echo "wp-admin status: $STATUS"
+          [[ "$STATUS" == "302" ]]
+
+      - name: Test — REST API responds
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/wp-json/)
+          echo "REST API status: $STATUS"
+          [[ "$STATUS" == "200" ]]
+
+      - name: Test — multiple sequential requests (stability)
+        run: |
+          for i in $(seq 1 10); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/)
+            echo "Request $i: $STATUS"
+            [[ "$STATUS" == "200" || "$STATUS" == "302" ]]
+          done
+
+      - name: Test — concurrent requests (worker pool)
+        run: |
+          # Fire 5 concurrent requests and collect exit codes
+          PIDS=()
+          for i in $(seq 1 5); do
+            curl -sf --max-time 10 http://localhost:8889/ > /dev/null &
+            PIDS+=($!)
+          done
+          FAIL=0
+          for PID in "${PIDS[@]}"; do
+            wait "$PID" || FAIL=$((FAIL + 1))
+          done
+          echo "Concurrent failures: $FAIL / 5"
+          [ "$FAIL" -eq 0 ]
+
+      - name: Collect server logs on failure
+        if: failure()
+        run: |
+          kill "$SERVER_PID" 2>/dev/null || true
+          echo "=== PHP error log ==="
+          cat /tmp/php_errors.log 2>/dev/null || echo "(no log)"
+
+      - name: Stop server
+        if: always()
+        run: kill "$SERVER_PID" 2>/dev/null || true
