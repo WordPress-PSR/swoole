@@ -4,3 +4,4 @@ vendor/
 wordpress/
 .env
 
+.agents/loop-state/
