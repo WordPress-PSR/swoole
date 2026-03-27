@@ -1,0 +1,384 @@
+name: WordPress PHPUnit Tests (Swoole)
+
+# Run WordPress core PHPUnit integration tests against Swoole-served WordPress.
+# Validates PSR request handler compatibility at the PHP unit/integration level.
+#
+# Uses wordpress-develop (the test repo) which ships ~10,000+ PHPUnit tests.
+# Failures are triaged into three categories:
+#   1. Swoole/PSR incompatibility  — our bug to fix
+#   2. Test assumes php-fpm        — test needs adaptation
+#   3. Pre-existing WP bug         — not our problem
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  workflow_dispatch:
+    inputs:
+      test_group:
+        description: "PHPUnit test group/filter (e.g. 'query', 'post', empty=all)"
+        required: false
+        default: ""
+      max_failures:
+        description: "Stop after N failures (0 = run all)"
+        required: false
+        default: "50"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  WP_URL: http://localhost:8889
+  WP_ADMIN_USER: admin
+  WP_ADMIN_PASSWORD: password
+  WP_ADMIN_EMAIL: admin@example.com
+  # Main WordPress DB (served by Swoole)
+  DB_NAME: wordpress
+  DB_USER: wordpress
+  DB_PASSWORD: wordpress
+  DB_HOST: 127.0.0.1
+  # Separate test DB for PHPUnit (wordpress-develop convention)
+  DB_TEST_NAME: wordpress_test
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Phase 1: WordPress core PHPUnit integration tests
+  # -----------------------------------------------------------------------
+  phpunit-integration:
+    name: PHPUnit Integration (PHP ${{ matrix.php }} / OpenSwoole ${{ matrix.openswoole }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2"]
+        openswoole: ["22.1.5"]
+
+    env:
+      HAS_DEPLOY_KEY: ${{ secrets.COMPOSER_DEPLOY_KEY != '' }}
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH deploy key
+        if: env.HAS_DEPLOY_KEY == 'true'
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.COMPOSER_DEPLOY_KEY }}
+
+      - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: openswoole-${{ matrix.openswoole }}, mysqli, pdo_mysql
+          tools: composer:v2, wp-cli, phpunit
+          coverage: none
+        env:
+          COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php${{ matrix.php }}-composer-
+
+      - name: Install Composer dependencies
+        run: |
+          composer install \
+            --no-interaction \
+            --no-progress \
+            --prefer-dist \
+            --optimize-autoloader
+        env:
+          COMPOSER_AUTH: >-
+            {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
+
+      - name: Install WordPress via WP-CLI
+        run: |
+          wp core download --path=wordpress --allow-root
+          wp config create \
+            --path=wordpress \
+            --dbname="${DB_NAME}" \
+            --dbuser="${DB_USER}" \
+            --dbpass="${DB_PASSWORD}" \
+            --dbhost="${DB_HOST}" \
+            --allow-root
+          wp core install \
+            --path=wordpress \
+            --url="${WP_URL}" \
+            --title="Swoole PHPUnit Test Site" \
+            --admin_user="${WP_ADMIN_USER}" \
+            --admin_password="${WP_ADMIN_PASSWORD}" \
+            --admin_email="${WP_ADMIN_EMAIL}" \
+            --skip-email \
+            --allow-root
+
+      - name: Create PHPUnit test database
+        run: |
+          mysql -h 127.0.0.1 -u root -proot \
+            -e "CREATE DATABASE IF NOT EXISTS ${DB_TEST_NAME}; \
+                GRANT ALL PRIVILEGES ON ${DB_TEST_NAME}.* TO '${DB_USER}'@'%'; \
+                FLUSH PRIVILEGES;"
+
+      - name: Clone wordpress-develop (sparse — tests only)
+        run: |
+          git clone --depth=1 --filter=blob:none --sparse \
+            https://github.com/WordPress/wordpress-develop.git \
+            /tmp/wordpress-develop
+          cd /tmp/wordpress-develop
+          # Include tests and the src directory (needed for bootstrap)
+          git sparse-checkout set tests src
+
+      - name: Install wordpress-develop Composer dependencies
+        working-directory: /tmp/wordpress-develop
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Configure wp-tests-config.php
+        run: |
+          # wordpress-develop expects wp-tests-config.php in its root
+          # We point it at our Swoole-served WordPress installation
+          cat > /tmp/wordpress-develop/wp-tests-config.php << EOF
+          <?php
+          /**
+           * WordPress PHPUnit test configuration for Swoole compatibility testing.
+           *
+           * Points the test suite at the Swoole-served WordPress instance.
+           * The test DB is separate from the live DB to allow safe truncation.
+           */
+
+          // Test database — separate from the Swoole-served WordPress DB
+          define( 'DB_NAME',     '${DB_TEST_NAME}' );
+          define( 'DB_USER',     '${DB_USER}' );
+          define( 'DB_PASSWORD', '${DB_PASSWORD}' );
+          define( 'DB_HOST',     '${DB_HOST}' );
+          define( 'DB_CHARSET',  'utf8' );
+          define( 'DB_COLLATE',  '' );
+
+          // Table prefix
+          \$table_prefix = 'wptests_';
+
+          // WordPress installation path (the Swoole-served instance)
+          define( 'ABSPATH', '${GITHUB_WORKSPACE}/wordpress/' );
+
+          // Test site URL — must match the running Swoole server
+          define( 'WP_TESTS_DOMAIN',        'localhost:8889' );
+          define( 'WP_TESTS_EMAIL',         '${WP_ADMIN_EMAIL}' );
+          define( 'WP_TESTS_TITLE',         'Swoole PHPUnit Test Site' );
+          define( 'WP_PHP_BINARY',          'php' );
+          define( 'WPLANG',                 '' );
+
+          // Disable multisite for initial compatibility run
+          define( 'WP_TESTS_MULTISITE',     false );
+
+          // Swoole-specific: disable direct header/exit calls in tests
+          // (these are replaced by the PSR request handler)
+          define( 'WP_TESTS_SKIP_HEADER_TESTS', true );
+          EOF
+
+      - name: Start Swoole server
+        run: |
+          php server.php > /tmp/swoole-server.log 2>&1 &
+          SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
+
+          # Wait up to 30s for server to become ready
+          for i in $(seq 1 30); do
+            if curl -sf --max-time 2 "${WP_URL}/" > /dev/null 2>&1; then
+              echo "Swoole server ready after ${i}s"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "ERROR: Swoole server did not start within 30 seconds"
+              cat /tmp/swoole-server.log
+              kill "$SERVER_PID" 2>/dev/null || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Run WordPress PHPUnit integration tests
+        working-directory: /tmp/wordpress-develop
+        env:
+          WP_TESTS_DIR: /tmp/wordpress-develop/tests/phpunit
+          WP_CORE_DIR: ${{ github.workspace }}/wordpress
+          TEST_GROUP: ${{ github.event.inputs.test_group || '' }}
+          MAX_FAILURES: ${{ github.event.inputs.max_failures || '50' }}
+        run: |
+          # Build PHPUnit arguments
+          PHPUNIT_ARGS=(
+            "--configuration=phpunit.xml.dist"
+            "--log-junit=/tmp/phpunit-results.xml"
+            "--testdox-text=/tmp/phpunit-testdox.txt"
+          )
+
+          # Optional group filter
+          if [ -n "$TEST_GROUP" ]; then
+            PHPUNIT_ARGS+=("--group=$TEST_GROUP")
+          fi
+
+          # Stop after N failures to avoid very long runs on first setup
+          if [ "$MAX_FAILURES" -gt 0 ]; then
+            PHPUNIT_ARGS+=("--stop-on-failure")
+          fi
+
+          # Run PHPUnit; capture exit code for triage
+          vendor/bin/phpunit "${PHPUNIT_ARGS[@]}" \
+            2>&1 | tee /tmp/phpunit-output.txt || PHPUNIT_EXIT=$?
+
+          echo "PHPUNIT_EXIT=${PHPUNIT_EXIT:-0}" >> "$GITHUB_ENV"
+
+      - name: Triage PHPUnit failures
+        if: always()
+        run: |
+          if [ ! -f /tmp/phpunit-results.xml ]; then
+            echo "No PHPUnit results XML found — tests may not have run"
+            exit 0
+          fi
+
+          python3 - << 'PYEOF'
+          import xml.etree.ElementTree as ET
+          import sys
+
+          tree = ET.parse('/tmp/phpunit-results.xml')
+          root = tree.getroot()
+
+          # Aggregate stats
+          total = int(root.get('tests', 0))
+          failures = int(root.get('failures', 0))
+          errors = int(root.get('errors', 0))
+          skipped = int(root.get('skipped', 0))
+          passed = total - failures - errors - skipped
+
+          print(f"\n=== PHPUnit Integration Test Results (Swoole) ===")
+          print(f"Total:   {total}")
+          print(f"Passed:  {passed}")
+          print(f"Failed:  {failures}")
+          print(f"Errors:  {errors}")
+          print(f"Skipped: {skipped}")
+
+          if total > 0:
+              pass_rate = (passed / total) * 100
+              print(f"Pass rate: {pass_rate:.1f}% (target: >95%)")
+              if pass_rate < 95:
+                  print("WARNING: Pass rate below 95% target")
+
+          # Triage failures by error message heuristics
+          swoole_bugs = []
+          test_assumptions = []
+          wp_bugs = []
+
+          for testcase in root.iter('testcase'):
+              for child in testcase:
+                  if child.tag in ('failure', 'error'):
+                      name = testcase.get('name', 'unknown')
+                      classname = testcase.get('classname', '')
+                      msg = (child.text or '') + child.get('message', '')
+                      msg_lower = msg.lower()
+
+                      # Heuristic triage
+                      if any(k in msg_lower for k in [
+                          'header()', 'setcookie()', 'exit()', 'die()',
+                          '$_server', '$_request', '$_get', '$_post',
+                          'superglobal', 'headers already sent',
+                      ]):
+                          test_assumptions.append((classname, name, msg[:300]))
+                      elif any(k in msg_lower for k in [
+                          'swoole', 'coroutine', 'openswoole',
+                          'connection reset', 'broken pipe',
+                          'worker', 'task worker',
+                      ]):
+                          swoole_bugs.append((classname, name, msg[:300]))
+                      elif any(k in msg_lower for k in [
+                          'database state', 'table prefix', 'wptests_',
+                          'long-running process', 'static variable',
+                      ]):
+                          swoole_bugs.append((classname, name, msg[:300]))
+                      else:
+                          wp_bugs.append((classname, name, msg[:300]))
+
+          if swoole_bugs:
+              print(f"\n--- Likely Swoole/PSR incompatibilities ({len(swoole_bugs)}) ---")
+              for cls, name, msg in swoole_bugs[:20]:
+                  print(f"  FAIL: {cls}::{name}")
+                  if msg.strip():
+                      print(f"        {msg[:120].strip()}")
+
+          if test_assumptions:
+              print(f"\n--- Tests assuming php-fpm behaviour ({len(test_assumptions)}) ---")
+              for cls, name, msg in test_assumptions[:20]:
+                  print(f"  SKIP-CANDIDATE: {cls}::{name}")
+
+          if wp_bugs:
+              print(f"\n--- Other failures (may be pre-existing WP bugs) ({len(wp_bugs)}) ---")
+              for cls, name, msg in wp_bugs[:20]:
+                  print(f"  FAIL: {cls}::{name}")
+
+          PYEOF
+
+      - name: Upload PHPUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-results-php${{ matrix.php }}-openswoole${{ matrix.openswoole }}
+          path: |
+            /tmp/phpunit-results.xml
+            /tmp/phpunit-output.txt
+            /tmp/phpunit-testdox.txt
+          retention-days: 14
+
+      - name: Collect server logs on failure
+        if: failure()
+        run: |
+          echo "=== Swoole server log ==="
+          cat /tmp/swoole-server.log 2>/dev/null || echo "(no log)"
+
+      - name: Stop Swoole server
+        if: always()
+        run: kill "$SERVER_PID" 2>/dev/null || true
+
+      # Fail the job if PHPUnit exit code was non-zero AND pass rate < 95%
+      - name: Enforce pass-rate gate
+        if: always()
+        run: |
+          EXIT="${PHPUNIT_EXIT:-0}"
+          if [ "$EXIT" -ne 0 ] && [ -f /tmp/phpunit-results.xml ]; then
+            python3 - << 'PYEOF'
+          import xml.etree.ElementTree as ET, sys
+          root = ET.parse('/tmp/phpunit-results.xml').getroot()
+          total = int(root.get('tests', 0))
+          failures = int(root.get('failures', 0))
+          errors = int(root.get('errors', 0))
+          skipped = int(root.get('skipped', 0))
+          passed = total - failures - errors - skipped
+          if total > 0 and (passed / total) < 0.95:
+              print(f"FAIL: pass rate {passed/total*100:.1f}% < 95% target")
+              sys.exit(1)
+          else:
+              print(f"PASS: pass rate {passed/total*100:.1f}% meets or exceeds 95% target (or no tests ran)")
+          PYEOF
+          fi

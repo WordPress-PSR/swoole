@@ -49,6 +49,39 @@ services:
   #     - "6379:6379"
   #   restart: unless-stopped
 
+  # -----------------------------------------------------------------------
+  # E2E test runner (Playwright)
+  # Run with: docker compose --profile e2e up --abort-on-container-exit
+  # -----------------------------------------------------------------------
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    profiles: ["e2e"]
+    working_dir: /wordpress-develop
+    environment:
+      WP_BASE_URL: ${WP_URL:-http://app:8889}
+      WP_USERNAME: ${WP_ADMIN_USER:-admin}
+      WP_PASSWORD: ${WP_ADMIN_PASSWORD:-password}
+    volumes:
+      - playwright_results:/results
+    depends_on:
+      app:
+        condition: service_started
+    command: >
+      bash -c "
+        git clone --depth=1 --filter=blob:none --sparse
+          https://github.com/WordPress/wordpress-develop.git /wordpress-develop &&
+        cd /wordpress-develop &&
+        git sparse-checkout set tests/e2e &&
+        npm ci --ignore-scripts &&
+        npx playwright install chromium &&
+        npx playwright test
+          --project=chromium
+          --reporter=list,json
+          --output=/results
+        2>&1
+      "
+
 volumes:
   db_data:
   wp_uploads:
+  playwright_results:
