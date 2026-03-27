@@ -23,6 +23,14 @@ use Swoole\ExitException;
 // These would be a huge effort.
 // \Swoole\Runtime::enableCoroutine();
 
+// Disable WordPress's built-in cron spawning.
+// WordPress normally spawns a loopback HTTP request to wp-cron.php during page load.
+// In a persistent Swoole process that loopback request calls exit(), crashing the worker.
+// Cron jobs can be triggered externally via a real cron entry: wp cron event run --due-now
+if ( ! defined( 'DISABLE_WP_CRON' ) ) {
+	define( 'DISABLE_WP_CRON', true );
+}
+
 require __DIR__ . '/vendor/autoload.php';
 
 $wordpres_path = __DIR__ . '/wordpress';
