@@ -5,6 +5,11 @@
   "type": "project",
   "minimum-stability": "dev",
   "prefer-stable": true,
+  "config": {
+    "allow-plugins": {
+      "johnpbloch/wordpress-core-installer": true
+    }
+  },
   "authors": [
     {
       "name": "David Stone",
