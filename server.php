@@ -11,6 +11,7 @@ use Swoole\Http\Response as SwooleResponse;
 use Swoole\Http\Server;
 use Swoole\Server\Task;
 use Swoole\Constant;
+use Swoole\Util;
 use WordPressPsr\BucketWordPressRoutes;
 use WordPressPsr\RequestHandler;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -32,7 +33,7 @@ $http->set(
 		Constant::OPTION_DOCUMENT_ROOT            => $wordpres_path,
 		Constant::OPTION_ENABLE_STATIC_HANDLER    => true,
 		Constant::OPTION_ENABLE_COROUTINE         => true,
-		Constant::OPTION_WORKER_NUM               => \swoole_cpu_num(),
+		Constant::OPTION_WORKER_NUM               => Util::getCPUNum(),
 		Constant::OPTION_TASK_WORKER_NUM          => BucketWordPressRoutes::MIN_REQUIRED_WORKERS,
 		Constant::OPTION_TASK_ENABLE_COROUTINE    => true,
 		Constant::OPTION_STATIC_HANDLER_LOCATIONS => array( '/wp-admin', '/wp-content', '/wp-includes' ),
@@ -54,9 +55,9 @@ $http->on(
 	function ( $serv, $worker_id ) use ( $wordpres_path ) {
 		global $argv;
 		if ( $worker_id >= $serv->setting['worker_num'] ) {
-			\swoole_set_process_name( "php {$argv[0]} task worker" );
+			Util::setProcessName( "php {$argv[0]} task worker" );
 		} else {
-			\swoole_set_process_name( "php {$argv[0]} event worker" );
+			Util::setProcessName( "php {$argv[0]} event worker" );
 		}
 		if ( function_exists( 'opcache_reset' ) ) {
 			opcache_reset();
