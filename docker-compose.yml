@@ -1,0 +1,54 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8889}:8889"
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-wordpress}
+      DB_USER: ${DB_USER:-wordpress}
+      DB_PASSWORD: ${DB_PASSWORD:-wordpress}
+      WP_URL: ${WP_URL:-http://localhost:8889}
+      WP_TITLE: ${WP_TITLE:-WordPress Swoole}
+      WP_ADMIN_USER: ${WP_ADMIN_USER:-admin}
+      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD:-password}
+      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL:-admin@example.com}
+    volumes:
+      # Mount source files for hot reload (inotify watches for changes)
+      - .:/var/www/html
+      # Persist WordPress uploads
+      - wp_uploads:/var/www/html/wordpress/wp-content/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-wordpress}
+      MYSQL_USER: ${DB_USER:-wordpress}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wordpress}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Optional: Redis for object cache testing
+  # Uncomment to enable
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   restart: unless-stopped
+
+volumes:
+  db_data:
+  wp_uploads:

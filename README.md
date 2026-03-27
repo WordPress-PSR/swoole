@@ -5,8 +5,63 @@ A method of running WordPress with the high performance, event-driven Swoole HTT
 This project is very much a work in progress, and many bugs can be expected.
 Pull requests are very welcome.
 
-Installation
-------------
+Quick Start (Docker)
+--------------------
+
+The fastest way to get a working development environment is with Docker.
+
+**Requirements:** Docker and Docker Compose v2.
+
+```bash
+# 1. Clone the project
+git clone https://github.com/WordPress-PSR/swoole.git wordpress-swoole
+cd wordpress-swoole
+
+# 2. (Optional) Customise configuration
+cp .env.example .env
+# Edit .env to change ports, credentials, etc.
+
+# 3. Start all services
+docker compose up -d
+
+# 4. Visit the site
+open http://localhost:8889
+```
+
+WordPress is installed automatically on first boot. Default credentials:
+
+| Setting  | Value                    |
+|----------|--------------------------|
+| URL      | http://localhost:8889    |
+| Username | `admin`                  |
+| Password | `password`               |
+
+**Hot reload** is enabled by default via inotify — PHP file changes trigger an automatic server reload without restarting the container.
+
+**Database** data persists between restarts in a named Docker volume.
+
+### Useful commands
+
+```bash
+# View logs
+docker compose logs -f app
+
+# Run WP-CLI commands
+docker compose exec app wp --info --allow-root
+
+# Stop services
+docker compose down
+
+# Destroy everything including the database volume
+docker compose down -v
+```
+
+### Redis (optional)
+
+To enable Redis for object cache testing, uncomment the `redis` service block in `docker-compose.yml`.
+
+Manual Installation
+-------------------
 
 Swoole must be installed from pecl or [another source](https://www.swoole.co.uk/docs/get-started/installation).
 
@@ -24,7 +79,7 @@ If it fails for any reason create wp-config.php manually.
 ```bash
 cp wordpress/wp-config-sample.php wp-config.php
 ```
-Than run the installation with WP cli.
+Then run the installation with WP-CLI.
 ```bash
 wp core install --url='http://0.0.0.0:8889' --title='Swoole Test' --admin_user=admin --admin_password=password --skip-email
 ```
