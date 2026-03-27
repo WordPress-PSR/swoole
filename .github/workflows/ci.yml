@@ -194,32 +194,32 @@ jobs:
 
       - name: Test — homepage returns 200 or 302
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/)
+          STATUS=$(curl -s --max-time 60 -o /dev/null -w "%{http_code}" http://localhost:8889/)
           echo "Homepage status: $STATUS"
           [[ "$STATUS" == "200" || "$STATUS" == "302" ]]
 
       - name: Test — wp-login.php returns 200
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/wp-login.php)
+          STATUS=$(curl -s --max-time 60 -o /dev/null -w "%{http_code}" http://localhost:8889/wp-login.php)
           echo "wp-login.php status: $STATUS"
           [[ "$STATUS" == "200" ]]
 
       - name: Test — wp-admin redirects to login (302)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-redirs 0 http://localhost:8889/wp-admin/)
+          STATUS=$(curl -s --max-time 60 -o /dev/null -w "%{http_code}" --max-redirs 0 http://localhost:8889/wp-admin/)
           echo "wp-admin status: $STATUS"
           [[ "$STATUS" == "302" ]]
 
       - name: Test — REST API responds
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/wp-json/)
+          STATUS=$(curl -s --max-time 60 -o /dev/null -w "%{http_code}" http://localhost:8889/wp-json/)
           echo "REST API status: $STATUS"
           [[ "$STATUS" == "200" ]]
 
       - name: Test — multiple sequential requests (stability)
         run: |
           for i in $(seq 1 10); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8889/)
+            STATUS=$(curl -s --max-time 60 -o /dev/null -w "%{http_code}" http://localhost:8889/)
             echo "Request $i: $STATUS"
             [[ "$STATUS" == "200" || "$STATUS" == "302" ]]
           done
