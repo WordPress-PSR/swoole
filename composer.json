@@ -27,7 +27,7 @@
   "require-dev": {
     "roave/security-advisories": "dev-master",
     "swoole/ide-helper": "@dev",
-    "mezzio/mezzio-swoole": "^3.3"
+    "mezzio/mezzio-swoole": "^4.11"
   },
   "provide": {
     "ext-swoole": "*"
