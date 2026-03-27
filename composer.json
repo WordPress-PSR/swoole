@@ -5,11 +5,6 @@
   "type": "project",
   "minimum-stability": "dev",
   "prefer-stable": true,
-  "config": {
-    "allow-plugins": {
-      "johnpbloch/wordpress-core-installer": true
-    }
-  },
   "authors": [
     {
       "name": "David Stone",
@@ -20,7 +15,9 @@
     "php": "^8.2",
     "wordpress-psr/request-handler": "dev-master",
     "chubbyphp/chubbyphp-swoole-request-handler": "^1.5",
-    "nyholm/psr7": "^1.4.0"
+    "nyholm/psr7": "^1.4.0",
+    "johnpbloch/wordpress-core-installer": "^2.0",
+    "johnpbloch/wordpress": "^6.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master",
