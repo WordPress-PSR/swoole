@@ -93,14 +93,10 @@ jobs:
           # would cause composer to attempt an SSH clone which fails without a
           # deploy key.
           composer config --unset repositories.0
-          # --ignore-platform-reqs: mezzio/mezzio-swoole (dev dep) requires PHP
-          # <8.2 but we're on 8.2. The hot-reload feature it provides is not
-          # needed for test runs; the conditional in server.php handles absence.
           composer install \
             --no-interaction \
             --no-progress \
             --no-dev \
-            --ignore-platform-reqs \
             --prefer-dist \
             --optimize-autoloader
         env:
