@@ -22,7 +22,7 @@
     "mezzio/mezzio-swoole": "^4.11"
   },
   "provide": {
-    "ext-swoole": "^22.0"
+    "ext-swoole": "6.1.3"
   },
   "config": {
     "allow-plugins": {
