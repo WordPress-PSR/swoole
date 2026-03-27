@@ -204,9 +204,12 @@ $http->on(
 			error_log( 'ExitException in task worker: ' . $e->getMessage() );
 
 			// Prefer PSR-captured headers (patched WordPress fork via wp_header action).
-			$psr_headers = Headers::get_headers();
-			$psr_status  = Headers::get_status_code();
-			Headers::reset();
+			$headers_instance = Headers::getCurrent();
+			$psr_headers      = $headers_instance ? $headers_instance->get_headers() : array();
+			$psr_status       = $headers_instance ? $headers_instance->get_status_code() : 200;
+			if ( $headers_instance ) {
+				$headers_instance->reset();
+			}
 
 			// Merge redirect info: per-request filter takes priority, then mu-plugin global.
 			$captured_location = $redirect_info['location'] ?? ( $GLOBALS['_swoole_redirect']['location'] ?? null );
