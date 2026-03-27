@@ -12,13 +12,14 @@
     }
   ],
   "require": {
+    "php": "^8.2",
     "wordpress-psr/request-handler": "dev-master",
-    "chubbyphp/chubbyphp-swoole-request-handler": "^1.1",
+    "chubbyphp/chubbyphp-swoole-request-handler": "^1.5",
     "nyholm/psr7": "^1.4.0"
   },
   "require-dev": {
     "roave/security-advisories": "dev-master",
-    "swoole/ide-helper": "@dev",
+    "swoole/ide-helper": "^6.0",
     "mezzio/mezzio-swoole": "^4.11"
   },
   "provide": {
