@@ -31,5 +31,10 @@
   },
   "provide": {
     "ext-swoole": "*"
+  },
+  "config": {
+    "allow-plugins": {
+      "johnpbloch/wordpress-core-installer": true
+    }
   }
 }
