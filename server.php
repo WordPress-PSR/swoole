@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App;
 
-use Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher;
 use Chubbyphp\SwooleRequestHandler\PsrRequestFactory;
 use Chubbyphp\SwooleRequestHandler\SwooleResponseEmitter;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -253,8 +252,8 @@ $http->on(
 	}
 );
 
-if ( extension_loaded( 'inotify' ) && class_exists( InotifyFileWatcher::class ) ) {
-	$inotify = new InotifyFileWatcher();
+if ( extension_loaded( 'inotify' ) && class_exists( \Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher::class ) ) {
+	$inotify = new \Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher();
 	$inotify->addFilePath( $wordpres_path );
 
 	$http->tick(

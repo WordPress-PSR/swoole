@@ -73,7 +73,8 @@ jobs:
             --no-interaction \
             --no-progress \
             --prefer-dist \
-            --optimize-autoloader
+            --optimize-autoloader \
+            --ignore-platform-req=ext-swoole
         env:
           COMPOSER_AUTH: >-
             {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
@@ -139,7 +140,8 @@ jobs:
             --no-interaction \
             --no-progress \
             --prefer-dist \
-            --optimize-autoloader
+            --optimize-autoloader \
+            --ignore-platform-req=ext-swoole
         env:
           COMPOSER_AUTH: >-
             {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
