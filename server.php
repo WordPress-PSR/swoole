@@ -252,7 +252,7 @@ $http->on(
 	}
 );
 
-if ( extension_loaded( 'inotify' ) && class_exists( \Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher::class ) ) {
+if ( extension_loaded( 'inotify' ) && class_exists( 'Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher' ) ) {
 	$inotify = new \Mezzio\Swoole\HotCodeReload\FileWatcher\InotifyFileWatcher();
 	$inotify->addFilePath( $wordpres_path );
 
