@@ -36,11 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         php: ["8.2", "8.3", "8.4"]
-        openswoole: ["22.1.5", "22.1.2"]
-        exclude:
-          # OpenSwoole 22.1.5 does not yet publish a PHP 8.4 PECL release
-          - php: "8.4"
-            openswoole: "22.1.5"
+        openswoole: ["22.1.2"]
 
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +90,7 @@ jobs:
       fail-fast: false
       matrix:
         php: ["8.2", "8.3"]
-        openswoole: ["22.1.5"]
+        openswoole: ["22.1.2"]
 
     services:
       mysql:
@@ -170,18 +166,26 @@ jobs:
 
       - name: Start Swoole server
         run: |
-          php server.php &
+          php server.php > /tmp/server_stdout.log 2> /tmp/server_stderr.log &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> "$GITHUB_ENV"
 
-          # Wait up to 15 s for the server to become ready
-          for i in $(seq 1 15); do
+          # Wait up to 30 s for the server to become ready
+          for i in $(seq 1 30); do
             if curl -sf --max-time 2 http://localhost:8889/ > /dev/null 2>&1; then
               echo "Server ready after ${i}s"
               break
             fi
-            if [ "$i" -eq 15 ]; then
-              echo "Server did not start within 15 seconds"
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Server process exited unexpectedly"
+              echo "=== stdout ===" && cat /tmp/server_stdout.log || true
+              echo "=== stderr ===" && cat /tmp/server_stderr.log || true
+              exit 1
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Server did not start within 30 seconds"
+              echo "=== stdout ===" && cat /tmp/server_stdout.log || true
+              echo "=== stderr ===" && cat /tmp/server_stderr.log || true
               kill "$SERVER_PID" 2>/dev/null || true
               exit 1
             fi
@@ -239,8 +243,9 @@ jobs:
         if: failure()
         run: |
           kill "$SERVER_PID" 2>/dev/null || true
-          echo "=== PHP error log ==="
-          cat /tmp/php_errors.log 2>/dev/null || echo "(no log)"
+          echo "=== server stdout ===" && cat /tmp/server_stdout.log 2>/dev/null || echo "(no log)"
+          echo "=== server stderr ===" && cat /tmp/server_stderr.log 2>/dev/null || echo "(no log)"
+          echo "=== PHP error log ===" && cat /tmp/php_errors.log 2>/dev/null || echo "(no log)"
 
       - name: Stop server
         if: always()
