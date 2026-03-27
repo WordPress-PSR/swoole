@@ -42,25 +42,8 @@ jobs:
           - php: "8.4"
             openswoole: "22.1.5"
 
-    env:
-      # Expose whether the deploy key secret is set so step-level if: conditions
-      # can reference it (secrets context is not available in if: expressions).
-      HAS_DEPLOY_KEY: ${{ secrets.COMPOSER_DEPLOY_KEY != '' }}
-
     steps:
       - uses: actions/checkout@v4
-
-      # ---------------------------------------------------------------
-      # SSH key for private VCS dependency (superdav42/wordpress-core)
-      # Add a repository deploy key and store it as COMPOSER_DEPLOY_KEY
-      # in GitHub Actions secrets.  If the secret is absent the step is
-      # skipped and composer will fall back to the HTTPS token below.
-      # ---------------------------------------------------------------
-      - name: Configure SSH deploy key
-        if: env.HAS_DEPLOY_KEY == 'true'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.COMPOSER_DEPLOY_KEY }}
 
       - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
         uses: shivammathur/setup-php@v2
@@ -113,9 +96,6 @@ jobs:
         php: ["8.2", "8.3"]
         openswoole: ["22.1.5"]
 
-    env:
-      HAS_DEPLOY_KEY: ${{ secrets.COMPOSER_DEPLOY_KEY != '' }}
-
     services:
       mysql:
         image: mysql:8.0
@@ -134,12 +114,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure SSH deploy key
-        if: env.HAS_DEPLOY_KEY == 'true'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.COMPOSER_DEPLOY_KEY }}
 
       - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
         uses: shivammathur/setup-php@v2
