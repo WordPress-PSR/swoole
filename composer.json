@@ -22,7 +22,8 @@
   "require-dev": {
     "roave/security-advisories": "dev-master",
     "swoole/ide-helper": "^6.0",
-    "mezzio/mezzio-swoole": "^4.11"
+    "mezzio/mezzio-swoole": "^4.11",
+    "rector/rector": "^2.0"
   },
   "provide": {
     "ext-swoole": "6.1.3"
@@ -30,6 +31,15 @@
   "config": {
     "allow-plugins": {
       "johnpbloch/wordpress-core-installer": true
+    },
+    "platform": {
+      "php": "8.2.0"
     }
+  },
+  "scripts": {
+    "rector-transform": [
+      "Composer\\Config::disableProcessTimeout",
+      "rector process --config rector.php --no-progress-bar --no-diffs"
+    ]
   }
 }
