@@ -5,7 +5,7 @@
  * Applies the WordPress PSR transformations (exit→wp_exit, header→wp_header, etc.)
  * to the WordPress core installation and any plugins in wp-content/plugins/.
  *
- * This runs automatically via composer post-install-cmd / post-update-cmd.
+ * Run manually: composer rector-transform
  */
 
 declare(strict_types=1);

@@ -37,12 +37,6 @@
     }
   },
   "scripts": {
-    "post-install-cmd": [
-      "@rector-transform"
-    ],
-    "post-update-cmd": [
-      "@rector-transform"
-    ],
     "rector-transform": [
       "Composer\\Config::disableProcessTimeout",
       "rector process --config rector.php --no-progress-bar --no-diffs"
