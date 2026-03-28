@@ -11,6 +11,9 @@
 declare(strict_types=1);
 
 use Rector\Config\RectorConfig;
+// These rule classes are provided by wordpress-psr/request-handler (require in composer.json).
+// They live in vendor/wordpress-psr/request-handler/src/Rector/ and are registered
+// in Composer's PSR-4 autoloader under the WordPressPsr\ namespace.
 use WordPressPsr\Rector\NewCookieFunction;
 use WordPressPsr\Rector\NewHeaderFunction;
 use WordPressPsr\Rector\NewHeaderRemoveFunction;
@@ -23,9 +26,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Build paths dynamically — only include directories that exist.
-$paths = [ __DIR__ . '/wordpress/' ];
+$paths = [];
+if ( is_dir( __DIR__ . '/wordpress/' ) ) {
+	$paths[] = __DIR__ . '/wordpress/';
+}
 if ( is_dir( __DIR__ . '/wp-content/plugins/' ) ) {
 	$paths[] = __DIR__ . '/wp-content/plugins/';
+}
+
+if ( empty( $paths ) ) {
+	// Nothing to transform yet (e.g. fresh clone before composer install completes).
+	return RectorConfig::configure();
 }
 
 return RectorConfig::configure()
@@ -44,6 +55,7 @@ return RectorConfig::configure()
 		'*/node_modules/*',
 	] )
 	->withAutoloadPaths( [
+		__DIR__ . '/vendor/autoload.php',
 		__DIR__ . '/wordpress',
 	] )
 	->withRules( [
