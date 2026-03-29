@@ -56,7 +56,6 @@ jobs:
         php: ["8.2"]
         openswoole: ["22.1.5"]
 
-    env:
     services:
       mysql:
         image: mysql:8.0
