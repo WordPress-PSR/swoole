@@ -119,16 +119,20 @@ jobs:
           COMPOSER_AUTH: >-
             {"github-oauth":{"github.com":"${{ secrets.GITHUB_TOKEN }}"}}
 
-      - name: Install WordPress via WP-CLI
+      - name: Configure and install WordPress via WP-CLI
         run: |
-          wp core download --path=wordpress --allow-root
+          # WordPress core files are already present — installed by Composer via
+          # johnpbloch/wordpress into the wordpress/ directory. Running
+          # `wp core download` here would fail with "WordPress files seem to
+          # already be present here." Skip straight to config + install.
           wp config create \
             --path=wordpress \
             --dbname="${DB_NAME}" \
             --dbuser="${DB_USER}" \
             --dbpass="${DB_PASSWORD}" \
             --dbhost="${DB_HOST}" \
-            --allow-root
+            --allow-root \
+            --force
           wp core install \
             --path=wordpress \
             --url="${WP_URL}" \
