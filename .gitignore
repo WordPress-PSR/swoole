@@ -5,3 +5,6 @@ wordpress/
 .env
 
 .agents/loop-state/
+
+# AI DevOps local config
+.aidevops.json
