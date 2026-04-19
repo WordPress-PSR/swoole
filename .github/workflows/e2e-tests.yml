@@ -61,7 +61,7 @@ jobs:
           --health-retries=5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
         uses: shivammathur/setup-php@v2
@@ -78,7 +78,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -147,7 +147,7 @@ jobs:
           done
 
       - name: Set up Node.js for Playwright
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
 
@@ -292,7 +292,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report-php${{ matrix.php }}-openswoole${{ matrix.openswoole }}
           path: /tmp/playwright-report/
@@ -300,7 +300,7 @@ jobs:
 
       - name: Upload Playwright results JSON
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results-php${{ matrix.php }}-openswoole${{ matrix.openswoole }}
           path: /tmp/playwright-results.json
