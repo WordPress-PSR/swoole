@@ -15,7 +15,7 @@ jobs:
     name: PHP Lint (8.2)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -39,7 +39,7 @@ jobs:
         openswoole: ["22.1.5", "22.1.2"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
         uses: shivammathur/setup-php@v2
@@ -60,7 +60,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -116,7 +116,7 @@ jobs:
           --health-retries=5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up PHP ${{ matrix.php }} with OpenSwoole ${{ matrix.openswoole }}
         uses: shivammathur/setup-php@v2
@@ -133,7 +133,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-php${{ matrix.php }}-composer-${{ hashFiles('**/composer.lock') }}
